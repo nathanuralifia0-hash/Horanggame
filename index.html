@@ -1,0 +1,739 @@
+
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>🎯 Tic Tac Toe - Lawan Komputer</title>
+<style>
+  /* ---------- Variables & base ---------- */
+  :root{
+    --bg-1: #07071a;
+    --bg-2: #0b0f2b;
+    --neon-blue: #4dd2ff;
+    --neon-purple: #b07bff;
+    --glass: rgba(255,255,255,0.04);
+    --accent: linear-gradient(135deg,var(--neon-blue),var(--neon-purple));
+    --size: min(80vmin, 520px); /* board reference size */
+  }
+  *{box-sizing:border-box}
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: radial-gradient(1200px 800px at 10% 10%, rgba(71,17,255,0.12), transparent 8%),
+                radial-gradient(900px 600px at 90% 90%, rgba(22,200,255,0.06), transparent 8%),
+                linear-gradient(180deg,var(--bg-1),var(--bg-2));
+    color: #e9eefc;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:clamp(12px,3vw,28px);
+  }
+
+  /* ---------- App container ---------- */
+  .app {
+    width: min(calc(var(--size) + 220px), 100%);
+    max-width: 980px;
+    display:grid;
+    grid-template-columns: 1fr min(420px, 42%);
+    gap: clamp(12px,2.5vw,24px);
+    align-items:center;
+    position:relative;
+  }
+
+  /* If narrow screens, stack vertically */
+  @media (max-width:900px){
+    .app{grid-template-columns: 1fr; padding:8px}
+  }
+
+  /* ---------- Left: Title + buttons + board ---------- */
+  .panel {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius: 16px;
+    padding: clamp(12px,2vw,18px);
+    box-shadow: 0 6px 30px rgba(10,7,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .title {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    font-weight:700;
+    font-size:clamp(18px,2.4vw,22px);
+    letter-spacing:0.2px;
+  }
+  .subtitle {
+    font-size:12px;
+    opacity:0.7;
+  }
+
+  /* Sound toggle top-right */
+  .controls {
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .icon-btn{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.06);
+    padding:8px;
+    border-radius:10px;
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    transition:all .18s ease;
+    backdrop-filter: blur(6px);
+  }
+  .icon-btn:hover{transform:translateY(-3px); box-shadow: 0 6px 18px rgba(80,60,180,0.12)}
+  .icon-btn:active{transform:translateY(-1px) scale(.995)}
+
+  /* ---------- Board ---------- */
+  .board-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+  }
+  .board {
+    width: clamp(260px, 42vmin, var(--size));
+    height: clamp(260px, 42vmin, var(--size));
+    display:grid;
+    grid-template-columns: repeat(3,1fr);
+    grid-template-rows: repeat(3,1fr);
+    gap:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius: 18px;
+    padding: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+  }
+
+  .cell {
+    background: linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.01));
+    border-radius: 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: clamp(28px,7vmin,56px);
+    font-weight:800;
+    cursor:pointer;
+    user-select:none;
+    position:relative;
+    transition: transform .15s cubic-bezier(.2,.9,.3,1), background .18s;
+    -webkit-tap-highlight-color: transparent;
+    border: 1px solid rgba(255,255,255,0.02);
+  }
+
+  .cell:hover{ transform: translateY(-6px) scale(1.02); box-shadow: 0 10px 30px rgba(18,14,60,0.25)}
+  .cell.disabled{ cursor:default; transform:none; opacity:0.98; }
+
+  /* Neon X and O */
+  .cell .x, .cell .o {
+    display:block;
+    filter: drop-shadow(0 6px 16px rgba(96,60,255,0.12));
+    transition: transform .25s cubic-bezier(.2,.9,.3,1), opacity .18s;
+  }
+  .cell .x{
+    color:var(--neon-purple);
+    text-shadow: 0 2px 30px rgba(176,123,255,0.36);
+  }
+  .cell .o{
+    color:var(--neon-blue);
+    text-shadow: 0 2px 30px rgba(77,210,255,0.36);
+  }
+
+  /* Winner highlight animation */
+  @keyframes glowPulse{
+    0%{ box-shadow: 0 0 12px rgba(255,255,255,0.06), 0 0 26px rgba(180,100,255,0.06); transform: translateY(-2px) scale(1.02)}
+    50%{ box-shadow: 0 0 20px rgba(255,255,255,0.09), 0 0 36px rgba(100,180,255,0.09); transform: translateY(-4px) scale(1.04)}
+    100%{ box-shadow: 0 0 12px rgba(255,255,255,0.06), 0 0 26px rgba(180,100,255,0.06); transform: translateY(-2px) scale(1.02)}
+  }
+  .winner {
+    animation: glowPulse 900ms ease-in-out infinite;
+    background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.03));
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+
+  /* Result overlay (fade-in/out) */
+  .result {
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    pointer-events:none;
+  }
+  .result .card {
+    pointer-events:auto;
+    min-width:220px;
+    background: linear-gradient(135deg, rgba(3,6,18,0.85), rgba(7,7,15,0.7));
+    border-radius:14px;
+    padding:18px;
+    text-align:center;
+    box-shadow: 0 12px 36px rgba(8,4,30,0.6);
+    border: 1px solid rgba(255,255,255,0.04);
+    transform: translateY(-6px);
+    opacity:0;
+    transition: all .36s cubic-bezier(.2,.9,.3,1);
+  }
+  .result.show .card{ opacity:1; transform:none; pointer-events:auto }
+  .result h2{ margin:0 0 6px 0; font-size:18px}
+  .result p{ margin:0 0 10px 0; color:rgba(255,255,255,0.75)}
+
+  /* Replay button */
+  .btn {
+    background:var(--accent);
+    color: #061027;
+    padding:10px 14px;
+    border-radius:12px;
+    font-weight:700;
+    cursor:pointer;
+    border:none;
+    box-shadow: 0 10px 30px rgba(120,80,255,0.12);
+  }
+
+  /* Right panel: Info / Score */
+  .side {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius: 16px;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    min-width:220px;
+  }
+  .score {
+    display:flex;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .score .item {
+    flex:1;
+    border-radius:12px;
+    padding:10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.006));
+    text-align:center;
+    border: 1px solid rgba(255,255,255,0.02);
+  }
+  .muted {opacity:0.7; font-size:13px}
+
+  /* Draw animation */
+  @keyframes drawFlash{
+    0%{ filter: hue-rotate(0deg) saturate(.9) }
+    50%{ filter: hue-rotate(25deg) saturate(1.15) }
+    100%{ filter: hue-rotate(0deg) saturate(.9) }
+  }
+  .draw-effect{ animation: drawFlash 900ms ease-in-out }
+
+  /* small helper */
+  .muted-small { font-size:12px; opacity:0.8; }
+  .center { text-align:center }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+
+    <!-- LEFT MAIN -->
+    <div class="panel" aria-live="polite">
+      <div class="header">
+        <div>
+          <div class="title">🎯 Tic Tac Toe - Lawan Komputer</div>
+          <div class="subtitle muted-small">Main melawan AI — cobalah kalahkan komputer!</div>
+        </div>
+
+        <div class="controls">
+          <button id="soundToggle" class="icon-btn" aria-label="Toggle sound">🔊</button>
+        </div>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board" role="grid" aria-label="Papan Tic Tac Toe">
+          <!-- 9 cells injected by JS -->
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;">
+        <div class="muted-small">Giliran: <strong id="turnLabel">Kamu (X)</strong></div>
+        <div style="display:flex;gap:8px">
+          <button id="restartBtn" class="icon-btn" title="Restart (Quick)">↺</button>
+          <button id="resetScoreBtn" class="icon-btn" title="Reset Score">🗑️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: score & info -->
+    <div class="side">
+      <div class="score">
+        <div class="item">
+          <div class="muted">Kamu</div>
+          <div style="font-size:22px;font-weight:800;color:var(--neon-purple)" id="scoreP">0</div>
+        </div>
+        <div class="item">
+          <div class="muted">Seri</div>
+          <div style="font-size:22px;font-weight:800;color:var(--neon-blue)" id="scoreD">0</div>
+        </div>
+        <div class="item">
+          <div class="muted">Komputer</div>
+          <div style="font-size:22px;font-weight:800;color:#ffd06b" id="scoreC">0</div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="muted-small">Petunjuk</div>
+        <ol style="padding-left:16px;margin-top:6px">
+          <li>Pilih kotak untuk menaruh X.</li>
+          <li>AI (O) akan bereaksi — tingkat dasar tapi sulit dikalahkan.</li>
+          <li>Gunakan tombol 🔊 untuk toggle music & efek.</li>
+        </ol>
+      </div>
+
+      <div style="margin-top:auto; display:flex;flex-direction:column;gap:8px">
+        <button id="playAgainBtn" class="btn" style="display:none">Main Lagi</button>
+        <div class="muted center">Desain neon • Responsive • Vanilla JS</div>
+      </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div class="result" id="result" aria-hidden="true">
+      <div class="card" id="resultCard">
+        <h2 id="resultTitle">Kamu Menang!</h2>
+        <p id="resultSub">Selamat — kamu berhasil!</p>
+        <div style="display:flex;gap:8px;justify-content:center">
+          <button id="playAgainBtn2" class="btn">Main Lagi</button>
+          <button id="closeResult" class="icon-btn">OK</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* =========================
+   Tic Tac Toe - Single File
+   - Vanilla JS
+   - Minimax AI (basic)
+   - WebAudio generated sounds & background pad
+   - Responsive neon UI + animations
+   ========================= */
+
+(() => {
+  // --- Game state ---
+  const HUMAN = 'X';
+  const AI = 'O';
+  let boardState = Array(9).fill(null); // 0..8
+  let isHumanTurn = true;
+  let gameOver = false;
+  let scores = { player:0, comp:0, draw:0 };
+  // cached elements
+  const boardEl = document.getElementById('board');
+  const turnLabel = document.getElementById('turnLabel');
+  const resultWrap = document.getElementById('result');
+  const resultTitle = document.getElementById('resultTitle');
+  const resultSub = document.getElementById('resultSub');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+  const playAgainBtn2 = document.getElementById('playAgainBtn2');
+  const scoreP = document.getElementById('scoreP');
+  const scoreC = document.getElementById('scoreC');
+  const scoreD = document.getElementById('scoreD');
+  const restartBtn = document.getElementById('restartBtn');
+  const resetScoreBtn = document.getElementById('resetScoreBtn');
+  const soundToggle = document.getElementById('soundToggle');
+  const closeResult = document.getElementById('closeResult');
+
+  // create cells
+  for(let i=0;i<9;i++){
+    const c = document.createElement('div');
+    c.className = 'cell';
+    c.setAttribute('data-index', i);
+    c.setAttribute('role','button');
+    c.setAttribute('aria-label','Kotak ' + (i+1));
+    c.addEventListener('click', onCellClick);
+    boardEl.appendChild(c);
+  }
+
+  // ----------------------------
+  // WebAudio: click, win, and ambient pad
+  // ----------------------------
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.9;
+  masterGain.connect(audioCtx.destination);
+
+  // SFX gain
+  const sfxGain = audioCtx.createGain();
+  sfxGain.gain.value = 0.8;
+  sfxGain.connect(masterGain);
+
+  // Background pad
+  let pad = null;
+  let padGain = audioCtx.createGain();
+  padGain.gain.value = 0.0001; // start near 0 to avoid autoplay rules; ramp up when user toggles
+  padGain.connect(masterGain);
+
+  // start pad oscillator nodes (chord-ish)
+  function createPad() {
+    // create three oscillators for a soft ambient chord
+    const freqs = [220, 277.18, 329.63]; // A3, C#4, E4 (A major-ish) -> pleasant
+    const nodes = freqs.map(f => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.0001;
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      osc.connect(gain);
+      gain.connect(padGain);
+      osc.start();
+      return {osc, gain};
+    });
+    return {
+      nodes,
+      stop() {
+        nodes.forEach(n => { try{ n.osc.stop(); }catch(e){} });
+      },
+      fadeOn() {
+        padGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        padGain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.8);
+      },
+      fadeOff() {
+        padGain.gain.cancelScheduledValues(audioCtx.currentTime);
+        padGain.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.6);
+      }
+    };
+  }
+  pad = createPad();
+
+  // click sound
+  function clickSfx(){
+    const now = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(900, now);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    o.connect(g); g.connect(sfxGain);
+    o.start(now);
+    o.stop(now + 0.2);
+  }
+  // victory sound (short melodic arpeggio)
+  function victorySfx(){
+    const now = audioCtx.currentTime;
+    const notes = [880, 1108.73, 1318.51]; // A5, C#6, E6
+    notes.forEach((n,i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(n, now + i*0.12);
+      g.gain.setValueAtTime(0.0001, now + i*0.12);
+      g.gain.exponentialRampToValueAtTime(0.14, now + i*0.12 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i*0.12 + 0.36);
+      o.connect(g); g.connect(sfxGain);
+      o.start(now + i*0.12);
+      o.stop(now + i*0.12 + 0.42);
+    });
+  }
+  // draw sound
+  function drawSfx(){
+    const now = audioCtx.currentTime;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(440, now);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.10, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+    o.connect(g); g.connect(sfxGain);
+    o.start(now); o.stop(now + 0.42);
+  }
+
+  // sound enabled flag
+  let soundEnabled = true;
+  function updateSoundUI(){
+    soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+    if(soundEnabled) {
+      // resume audioContext if suspended (some browsers require user gesture)
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      pad.fadeOn();
+    } else {
+      pad.fadeOff();
+    }
+  }
+  soundToggle.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    updateSoundUI();
+  });
+
+  // initialize UI
+  updateSoundUI();
+
+  // ----------------------------
+  // Game logic + AI (minimax)
+  // ----------------------------
+  const winCombos = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  function checkWinner(state){
+    for(const combo of winCombos){
+      const [a,b,c] = combo;
+      if(state[a] && state[a] === state[b] && state[a] === state[c]){
+        return { winner: state[a], combo };
+      }
+    }
+    if(state.every(Boolean)) return { winner: 'draw' };
+    return null;
+  }
+
+  function render(){
+    // update cells
+    const cells = boardEl.querySelectorAll('.cell');
+    cells.forEach((cell,i) => {
+      cell.classList.toggle('disabled', !!boardState[i] || gameOver);
+      cell.innerHTML = '';
+      const val = boardState[i];
+      if(val){
+        const span = document.createElement('span');
+        span.className = val === 'X' ? 'x' : 'o';
+        span.textContent = val;
+        // small appear animation
+        span.style.transform = 'scale(.6)';
+        setTimeout(()=> { span.style.transform = ''; }, 8);
+        cell.appendChild(span);
+      }
+      cell.classList.remove('winner','draw-effect');
+    });
+
+    // update turn label
+    turnLabel.textContent = isHumanTurn ? 'Kamu (X)' : 'Komputer (O)';
+  }
+
+  function highlightCombo(combo, cls='winner'){
+    combo.forEach(i => {
+      const c = boardEl.querySelector(`.cell[data-index="${i}"]`);
+      if(c) c.classList.add(cls);
+    });
+  }
+
+  // Minimax implementation for optimal play for AI
+  function minimax(newBoard, player){
+    const check = checkWinner(newBoard);
+    if(check){
+      if(check.winner === AI) return {score: 10};
+      else if(check.winner === HUMAN) return {score: -10};
+      else return {score: 0};
+    }
+
+    const avail = newBoard.map((v,i)=> v ? null : i).filter(v => v !== null);
+    const moves = [];
+
+    for(const i of avail){
+      const move = {};
+      move.index = i;
+      newBoard[i] = player;
+      const result = minimax(newBoard, player === AI ? HUMAN : AI);
+      move.score = result.score;
+      newBoard[i] = null;
+      moves.push(move);
+    }
+
+    // choose best move
+    let bestMove;
+    if(player === AI){
+      let bestScore = -Infinity;
+      for(const m of moves){
+        if(m.score > bestScore){ bestScore = m.score; bestMove = m; }
+      }
+    } else {
+      let bestScore = Infinity;
+      for(const m of moves){
+        if(m.score < bestScore){ bestScore = m.score; bestMove = m; }
+      }
+    }
+    return bestMove;
+  }
+
+  // Slight delay for AI to feel natural
+  function aiTakeTurn(){
+    if(gameOver) return;
+    // if board empty, play center to be nicer
+    const emptyIndexes = boardState.map((v,i)=>v?null:i).filter(v=>v!==null);
+    let moveIndex;
+    if(emptyIndexes.length === 9){
+      moveIndex = 4; // center first move
+    } else {
+      const best = minimax(boardState.slice(), AI);
+      moveIndex = (best && best.index !== undefined) ? best.index : emptyIndexes[Math.floor(Math.random()*emptyIndexes.length)];
+    }
+
+    // apply with small animation delay
+    setTimeout(()=> {
+      boardState[moveIndex] = AI;
+      if(soundEnabled) clickSfx();
+      render();
+      const check = checkWinner(boardState);
+      if(check) finishGame(check);
+      else {
+        isHumanTurn = true;
+        render();
+      }
+    }, 380 + Math.random() * 200);
+  }
+
+  // handle cell click
+  function onCellClick(e){
+    if(!isHumanTurn || gameOver) return;
+    const idx = Number(e.currentTarget.dataset.index);
+    if(boardState[idx]) return;
+    boardState[idx] = HUMAN;
+    if(soundEnabled) clickSfx();
+    render();
+    const check = checkWinner(boardState);
+    if(check) finishGame(check);
+    else {
+      isHumanTurn = false;
+      render();
+      // small delay then AI move
+      aiTakeTurn();
+    }
+  }
+
+  // end game
+  function finishGame(check){
+    gameOver = true;
+    const res = check.winner;
+    if(res === 'draw'){
+      // draw
+      if(soundEnabled) drawSfx();
+      scores.draw++;
+      scoreD.textContent = scores.draw;
+      // subtle draw effect
+      boardEl.querySelectorAll('.cell').forEach(c => c.classList.add('draw-effect'));
+      showResult('Seri!', 'Permainan berakhir seri.');
+    } else if(res === HUMAN){
+      scores.player++;
+      scoreP.textContent = scores.player;
+      // highlight winning combo
+      highlightCombo(check.combo, 'winner');
+      if(soundEnabled) victorySfx();
+      // playful color change for winner cells (done via css)
+      showResult('Kamu Menang!', 'Selamat — kamu berhasil mengalahkan komputer!');
+    } else {
+      scores.comp++;
+      scoreC.textContent = scores.comp;
+      highlightCombo(check.combo, 'winner');
+      if(soundEnabled) drawSfx(); // different sfx to indicate loss (reuse)
+      showResult('Komputer Menang!', 'Sayang sekali — komputer menang.');
+    }
+    // show Play Again button
+    playAgainBtn.style.display = 'block';
+  }
+
+  // show overlay result
+  function showResult(title, sub){
+    resultTitle.textContent = title;
+    resultSub.textContent = sub;
+    resultWrap.classList.add('show');
+    resultWrap.style.pointerEvents = 'auto';
+    resultWrap.setAttribute('aria-hidden', 'false');
+    playAgainBtn2.focus();
+  }
+
+  function closeResultOverlay(){
+    resultWrap.classList.remove('show');
+    resultWrap.style.pointerEvents = 'none';
+    resultWrap.setAttribute('aria-hidden', 'true');
+  }
+
+  // restart only board (keep score)
+  function restartBoard(){
+    boardState = Array(9).fill(null);
+    isHumanTurn = true;
+    gameOver = false;
+    render();
+    playAgainBtn.style.display = 'none';
+    closeResultOverlay();
+    // stop winner highlights
+    document.querySelectorAll('.cell').forEach(c => c.classList.remove('winner','draw-effect'));
+  }
+
+  // reset everything
+  function resetAll(){
+    scores = {player:0, comp:0, draw:0};
+    scoreP.textContent = 0;
+    scoreC.textContent = 0;
+    scoreD.textContent = 0;
+    restartBoard();
+  }
+
+  // Event bindings
+  playAgainBtn.addEventListener('click', restartBoard);
+  playAgainBtn2.addEventListener('click', restartBoard);
+  restartBtn.addEventListener('click', restartBoard);
+  resetScoreBtn.addEventListener('click', resetAll);
+  closeResult.addEventListener('click', closeResultOverlay);
+  // hide overlay when clicking outside card
+  resultWrap.addEventListener('click', (e) => {
+    if(e.target === resultWrap) closeResultOverlay();
+  });
+
+  // initial render
+  render();
+
+  // Accessibility: keyboard play (numbers 1..9)
+  window.addEventListener('keydown', (e) => {
+    if(gameOver) return;
+    // numeric keypad or row numbers
+    const mapping = {
+      '1':6,'2':7,'3':8,
+      '4':3,'5':4,'6':5,
+      '7':0,'8':1,'9':2
+    }; // board numbering like classic numpad layout: 7 8 9 top row
+    if(mapping[e.key] !== undefined && isHumanTurn){
+      const idx = mapping[e.key];
+      const target = boardEl.querySelector(`.cell[data-index="${idx}"]`);
+      if(target) target.click();
+    }
+  });
+
+  // ensure AudioContext resumes on first user gesture (some browsers block autoplay)
+  ['click','touchstart','keydown'].forEach(evt => {
+    const handler = () => {
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      // gently fade in pad if sound enabled
+      if(soundEnabled) pad.fadeOn();
+      window.removeEventListener(evt, handler);
+    };
+    window.addEventListener(evt, handler);
+  });
+
+  // small visual polish: when window resizes, update CSS variable for size (kept via root var)
+  // (not necessary but helps a bit on very small screens)
+  function updateSizeVar(){
+    // we keep var(--size) defined in CSS; but we can tweak if needed
+    // no-op here (left intentionally for extendability)
+  }
+  window.addEventListener('resize', updateSizeVar);
+
+  // Initial focus & hint
+  document.body.addEventListener('touchstart', ()=>{}, {passive:true});
+})();
+</script>
+</body>
+</html>
+
